@@ -1,0 +1,7 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import vm from 'node:vm';import worker,{validate} from '../worker/index.js';
+test('browser script parses',()=>{const html=fs.readFileSync('src/page.html','utf8');new vm.Script(html.split('<script>')[1].split('</script>')[0])});
+test('API requires authenticated user',async()=>{assert.equal((await worker.fetch(new Request('https://test/api/config'),{})).status,401)});
+test('cross-origin writes denied',async()=>{assert.equal((await worker.fetch(new Request('https://test/api/calls',{method:'POST',headers:{'oai-authenticated-user-id':'a',origin:'https://evil.test'}}),{})).status,403)});
+test('unconfigured live mode is explicit',async()=>{const r=await worker.fetch(new Request('https://test/api/session',{method:'POST',headers:{'oai-authenticated-user-id':'a',origin:'https://test'},body:'sdp'}),{});assert.equal(r.status,503)});
+test('invalid tool arguments rejected',()=>{assert.throws(()=>validate('booking',{slot:'x',name:'Sarah',confirmed:'yes'}));assert.throws(()=>validate('follow_up',{channel:'fax',recipient:'x',message:'x'}));assert.throws(()=>validate('unknown',{}))});
+test('configuration does not expose key',async()=>{const r=await worker.fetch(new Request('https://test/api/config',{headers:{'oai-authenticated-user-id':'a'}}),{OPENAI_API_KEY:'secret'});const s=await r.text();assert.ok(!s.includes('secret'));assert.equal(JSON.parse(s).live,true)});
